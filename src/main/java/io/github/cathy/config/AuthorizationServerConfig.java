@@ -15,6 +15,7 @@
  */
 package io.github.cathy.config;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,7 +28,8 @@ import com.nimbusds.jose.proc.SecurityContext;
 import com.zhongan.multitenancy.context.DefaultTenantContext;
 
 import io.github.cathy.jose.Jwks;
-import io.github.cathy.oauth2.server.authorization.client.TenantRegisteredClient;
+import io.github.cathy.oauth2.server.authorization.token.TenantAccessTokenResponseHandler;
+import io.github.cathy.security.oauth2.server.authorization.jackson2.TenantEnhancementModule;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -59,6 +61,7 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ConfigurationSettingNames;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 
@@ -71,10 +74,13 @@ public class AuthorizationServerConfig {
 
 	@Bean
 	@Order(Ordered.HIGHEST_PRECEDENCE)
-	public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+	public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http, TenantAccessTokenResponseHandler handler) throws Exception {
 		OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
 		http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
-				.oidc(Customizer.withDefaults());	// Enable OpenID Connect 1.0
+			.tokenEndpoint(token -> {
+				token.accessTokenResponseHandler(handler);
+			})
+			.oidc(Customizer.withDefaults());	// Enable OpenID Connect 1.0
 
 		// @formatter:off
 		http
@@ -105,8 +111,11 @@ public class AuthorizationServerConfig {
 				.clientSettings(ClientSettings.builder()
 					.setting("tenantContext", new DefaultTenantContext("gaia"))
 					.setting("channel", "testChannel")
+					.requireAuthorizationConsent(false).build())
+			    .tokenSettings(TokenSettings.builder()
+					.accessTokenTimeToLive(Duration.ofHours(12))
 					.setting(ConfigurationSettingNames.Token.ACCESS_TOKEN_FORMAT, OAuth2TokenFormat.REFERENCE)
-					.requireAuthorizationConsent(true).build())
+					.build())
 				.build();
 
 		// Save registered client in db as if in-memory
@@ -119,7 +128,7 @@ public class AuthorizationServerConfig {
 		List<Module> securityModules = SecurityJackson2Modules.getModules(classLoader);
 		objectMapper.registerModules(securityModules);
 		objectMapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
-		objectMapper.registerModule(new io.github.cathy.security.oauth2.server.authorization.jackson2.Module());
+		objectMapper.registerModule(new TenantEnhancementModule());
 		mapper.setObjectMapper(objectMapper);
 
 		registeredClientRepository.setRegisteredClientRowMapper(mapper);
@@ -132,7 +141,18 @@ public class AuthorizationServerConfig {
 
 	@Bean
 	public OAuth2AuthorizationService authorizationService(JdbcTemplate jdbcTemplate, RegisteredClientRepository registeredClientRepository) {
-		return new JdbcOAuth2AuthorizationService(jdbcTemplate, registeredClientRepository);
+		JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper mapper = new JdbcOAuth2AuthorizationService.OAuth2AuthorizationRowMapper(registeredClientRepository);
+		ObjectMapper objectMapper = new ObjectMapper();
+		ClassLoader classLoader = JdbcOAuth2AuthorizationService.class.getClassLoader();
+		List<Module> securityModules = SecurityJackson2Modules.getModules(classLoader);
+		objectMapper.registerModules(securityModules);
+		objectMapper.registerModule(new OAuth2AuthorizationServerJackson2Module());
+		objectMapper.registerModule(new TenantEnhancementModule());
+		mapper.setObjectMapper(objectMapper);
+
+		JdbcOAuth2AuthorizationService jdbcOAuth2AuthorizationService = new JdbcOAuth2AuthorizationService(jdbcTemplate, registeredClientRepository);
+		jdbcOAuth2AuthorizationService.setAuthorizationRowMapper(mapper);
+		return jdbcOAuth2AuthorizationService;
 	}
 
 	@Bean

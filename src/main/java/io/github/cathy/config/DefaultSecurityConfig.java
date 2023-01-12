@@ -15,6 +15,12 @@
  */
 package io.github.cathy.config;
 
+import com.zhongan.multitenancy.context.DefaultTenantContext;
+
+import io.github.cathy.oauth2.server.authorization.TenantUserDetails;
+
+import java.util.Collections;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -22,6 +28,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
@@ -48,15 +56,22 @@ public class DefaultSecurityConfig {
 	// @formatter:on
 
 	// @formatter:off
-	@Bean
-	UserDetailsService users() {
-		UserDetails user = User.withDefaultPasswordEncoder()
-				.username("user1")
-				.password("password")
-				.roles("USER")
-				.build();
-		return new InMemoryUserDetailsManager(user);
-	}
-	// @formatter:on
+//	@Bean
+//	UserDetailsService users() {
+//		TenantUserDetails userDetails = new TenantUserDetails(1L, "user1",
+//			PasswordEncoderFactories.createDelegatingPasswordEncoder().encode("password"),
+//			true, false, false, false, Collections.emptySet());
+//		DefaultTenantContext context = new DefaultTenantContext("testTenant");
+//		context.addAttribute("x-za-region", "testRegion");
+//		userDetails.setTenantContext(context);
+//
+////		UserDetails user = User.withDefaultPasswordEncoder()
+////				.username("user1")
+////				.password("password")
+////				.roles("USER")
+////				.build();
+//		return new InMemoryUserDetailsManager(userDetails);
+//	}
+//	// @formatter:on
 
 }
