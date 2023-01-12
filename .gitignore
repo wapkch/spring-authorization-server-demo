@@ -1,0 +1,10 @@
+target
+.idea
+.project
+.mvn
+*.iml
+.DS_Store
+*.log
+*.verisonBackup
+*.ipr
+*.iws
