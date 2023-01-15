@@ -26,8 +26,10 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.zhongan.multitenancy.context.DefaultTenantContext;
+import com.zhongan.multitenancy.context.TenantContext;
 
 import io.github.cathy.jose.Jwks;
+import io.github.cathy.oauth2.server.authorization.constants.Constants;
 import io.github.cathy.oauth2.server.authorization.token.TenantAccessTokenResponseHandler;
 import io.github.cathy.security.oauth2.server.authorization.jackson2.TenantEnhancementModule;
 
@@ -64,6 +66,7 @@ import org.springframework.security.oauth2.server.authorization.settings.OAuth2T
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 /**
  * @author Joe Grandja
@@ -75,7 +78,20 @@ public class AuthorizationServerConfig {
 	@Bean
 	@Order(Ordered.HIGHEST_PRECEDENCE)
 	public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http, TenantAccessTokenResponseHandler handler) throws Exception {
-		OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+		OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
+			new OAuth2AuthorizationServerConfigurer();
+		RequestMatcher endpointsMatcher = authorizationServerConfigurer
+			.getEndpointsMatcher();
+
+		http
+			.securityMatcher(endpointsMatcher)
+			.authorizeHttpRequests(authorize -> authorize
+				.requestMatchers("/oauth2/authorize", "/oauth2/token").authenticated()
+				.anyRequest().permitAll()
+			)
+			.csrf(csrf -> csrf.ignoringRequestMatchers(endpointsMatcher))
+			.apply(authorizationServerConfigurer);
+
 		http.getConfigurer(OAuth2AuthorizationServerConfigurer.class)
 			.tokenEndpoint(token -> {
 				token.accessTokenResponseHandler(handler);
@@ -109,14 +125,37 @@ public class AuthorizationServerConfig {
 				.scope("message.read")
 				.scope("message.write")
 				.clientSettings(ClientSettings.builder()
-					.setting("tenantContext", new DefaultTenantContext("gaia"))
-					.setting("channel", "testChannel")
+					.setting(TenantContext.class.getName(), new DefaultTenantContext("gaia"))
+					.setting(Constants.CHANNEL, "testChannel")
 					.requireAuthorizationConsent(false).build())
 			    .tokenSettings(TokenSettings.builder()
 					.accessTokenTimeToLive(Duration.ofHours(12))
 					.setting(ConfigurationSettingNames.Token.ACCESS_TOKEN_FORMAT, OAuth2TokenFormat.REFERENCE)
 					.build())
 				.build();
+
+		RegisteredClient registeredClient2 = RegisteredClient.withId(UUID.randomUUID().toString())
+			.clientId("messaging-client2")
+			.clientSecret("{noop}secret2")
+			.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+			.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+			.authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+			.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+			.redirectUri("http://127.0.0.1:8080/login/oauth2/code/messaging-client-oidc")
+			.redirectUri("http://127.0.0.1:8080/authorized")
+			.scope(OidcScopes.OPENID)
+			.scope(OidcScopes.PROFILE)
+			.scope("message.read")
+			.scope("message.write")
+			.clientSettings(ClientSettings.builder()
+				.setting(TenantContext.class.getName(), new DefaultTenantContext("gaia"))
+				.setting(Constants.CHANNEL, "testChannel")
+				.requireAuthorizationConsent(false).build())
+			.tokenSettings(TokenSettings.builder()
+				.accessTokenTimeToLive(Duration.ofHours(12))
+				.setting(ConfigurationSettingNames.Token.ACCESS_TOKEN_FORMAT, OAuth2TokenFormat.REFERENCE)
+				.build())
+			.build();
 
 		// Save registered client in db as if in-memory
 		JdbcRegisteredClientRepository registeredClientRepository = new JdbcRegisteredClientRepository(jdbcTemplate);
@@ -134,6 +173,7 @@ public class AuthorizationServerConfig {
 		registeredClientRepository.setRegisteredClientRowMapper(mapper);
 
 		registeredClientRepository.save(registeredClient);
+		registeredClientRepository.save(registeredClient2);
 
 		return registeredClientRepository;
 	}

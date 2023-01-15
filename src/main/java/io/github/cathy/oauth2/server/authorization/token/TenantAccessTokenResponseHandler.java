@@ -3,8 +3,11 @@ package io.github.cathy.oauth2.server.authorization.token;
 import com.zhongan.multitenancy.context.DefaultTenantContext;
 import com.zhongan.multitenancy.context.TenantContext;
 
+import io.github.cathy.oauth2.server.authorization.constants.Constants;
+
 import java.io.IOException;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -49,22 +52,25 @@ public class TenantAccessTokenResponseHandler implements AuthenticationSuccessHa
         Map<String, Object> additionalParameters = accessTokenAuthentication.getAdditionalParameters();
 
         // Lookup the authorization using the access token
-        OAuth2Authorization authorization = this.authorizationService.findByToken(
-            accessToken.getTokenValue(), OAuth2TokenType.ACCESS_TOKEN);
+        final Map<String, Object> additionalParametersToResponse = new HashMap<>();
+        OAuth2Authorization authorization = this.authorizationService.findByToken(accessToken.getTokenValue(), OAuth2TokenType.ACCESS_TOKEN);
+        if (authorization != null) {
+            Map<String, Object> claims = authorization.getAccessToken().getClaims();
+            if (!CollectionUtils.isEmpty(claims)) {
+                // Add back additionalParameters first
+                additionalParametersToResponse.putAll(additionalParameters);
 
-        Map<String, Object> claims = authorization.getAccessToken().getClaims();
-        HashMap<String, Object> map = new HashMap<>();
-        map.putAll(additionalParameters);
-        Object tenantContext = claims.get("tenantContext");
-        if (tenantContext != null) {
-            map.put("tenant", ((DefaultTenantContext) tenantContext).getTenant());
+                // Add the claims we need
+                Optional.ofNullable(claims.get(Constants.TENANT))
+                    .ifPresent(tenant -> additionalParametersToResponse.put(Constants.TENANT, tenant));
+                Optional.ofNullable(claims.get(Constants.CHANNEL))
+                    .ifPresent(channel -> additionalParametersToResponse.put(Constants.CHANNEL, channel));
+                Optional.ofNullable(claims.get(Constants.USER_ID))
+                    .ifPresent(userId -> additionalParametersToResponse.put(Constants.USER_ID, userId));
+                Optional.ofNullable(claims.get(Constants.USERNAME))
+                    .ifPresent(username -> additionalParametersToResponse.put(Constants.USERNAME, username));
+            }
         }
-        Object channel = claims.get("channel");
-        if (channel != null) {
-            map.put("channel", channel);
-        }
-        Optional.of(claims.get("user_id")).ifPresent(userId -> map.put("user_id", userId));
-        Optional.of(claims.get("user_name")).ifPresent(username -> map.put("user_name", username));
 
         OAuth2AccessTokenResponse.Builder builder =
             OAuth2AccessTokenResponse.withToken(accessToken.getTokenValue())
@@ -76,14 +82,13 @@ public class TenantAccessTokenResponseHandler implements AuthenticationSuccessHa
         if (refreshToken != null) {
             builder.refreshToken(refreshToken.getTokenValue());
         }
-        if (!CollectionUtils.isEmpty(map)) {
-            builder.additionalParameters(map);
+        if (!CollectionUtils.isEmpty(additionalParametersToResponse)) {
+            builder.additionalParameters(additionalParametersToResponse);
         }
 
         OAuth2AccessTokenResponse accessTokenResponse = builder.build();
         ServletServerHttpResponse httpResponse = new ServletServerHttpResponse(response);
         this.accessTokenHttpResponseConverter.write(accessTokenResponse, null, httpResponse);
     }
-
 
 }

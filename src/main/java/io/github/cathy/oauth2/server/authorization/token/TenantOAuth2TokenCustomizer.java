@@ -2,9 +2,18 @@ package io.github.cathy.oauth2.server.authorization.token;
 
 import com.zhongan.multitenancy.context.TenantContext;
 
+import io.github.cathy.oauth2.server.authorization.AttributeGrantedAuthority;
 import io.github.cathy.oauth2.server.authorization.TenantUserDetails;
+import io.github.cathy.oauth2.server.authorization.constants.Constants;
+
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
+
+import javax.swing.text.html.Option;
 
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenClaimsContext;
@@ -21,29 +30,35 @@ public class TenantOAuth2TokenCustomizer implements OAuth2TokenCustomizer<OAuth2
 
     @Override
     public void customize(OAuth2TokenClaimsContext context) {
-        AuthorizationGrantType authorizationGrantType = context.getAuthorizationGrantType();
+        OAuth2TokenClaimsSet.Builder builder = context.get(OAuth2TokenClaimsSet.Builder.class);
+        if (builder == null) return;
 
-        if (authorizationGrantType.equals(CLIENT_CREDENTIALS)) {
+        final AuthorizationGrantType grantType = context.getAuthorizationGrantType();
+
+        if (grantType.equals(CLIENT_CREDENTIALS)) {
             RegisteredClient registeredClient = context.getRegisteredClient();
-            TenantContext tenantContext = registeredClient.getClientSettings().getSetting("tenantContext");
-            String channel = registeredClient.getClientSettings().getSetting("channel");
-
-            OAuth2TokenClaimsSet.Builder builder = context.get(OAuth2TokenClaimsSet.Builder.class);
-            builder.claim("tenantContext", tenantContext);
-            builder.claim("channel", channel);
+            final TenantContext tenantContext = registeredClient.getClientSettings().getSetting(TenantContext.class.getName());
+            builder.claim(Constants.TENANT, tenantContext.getTenant());
+            if (!tenantContext.getAttributes().isEmpty()) {
+                builder.claim(Constants.TRACE, tenantContext.getAttributes());
+            }
+            final String channel = registeredClient.getClientSettings().getSetting(Constants.CHANNEL);
+            builder.claim(Constants.CHANNEL, channel);
         }
 
-        if (authorizationGrantType.equals(AUTHORIZATION_CODE)) {
+        if (grantType.equals(AUTHORIZATION_CODE)) {
             Authentication principal = context.getPrincipal();
-            if (principal.getPrincipal() instanceof TenantUserDetails) {
-                TenantContext tenantContext = ((TenantUserDetails) principal.getPrincipal()).getTenantContext();
-                OAuth2TokenClaimsSet.Builder builder = context.get(OAuth2TokenClaimsSet.Builder.class);
-                builder.claim("tenantContext", tenantContext);
-                builder.claim("user_id", ((TenantUserDetails) principal.getPrincipal()).getUserId());
-                builder.claim("user_name", ((TenantUserDetails) principal.getPrincipal()).getUsername());
+            if (principal.getPrincipal() instanceof TenantUserDetails userDetails) {
+                TenantContext tenantContext = userDetails.getTenantContext();
+                builder.claim(Constants.TENANT, tenantContext.getTenant());
+                if (!tenantContext.getAttributes().isEmpty()) {
+                    builder.claim(Constants.TRACE, tenantContext.getAttributes());
+                }
+                builder.claim(Constants.USER_ID, userDetails.getUserId());
+                builder.claim(Constants.USERNAME, userDetails.getUsername());
+                builder.claim(Constants.AUTHORITIES, userDetails.getAuthorities());
             }
         }
-
     }
 
 }

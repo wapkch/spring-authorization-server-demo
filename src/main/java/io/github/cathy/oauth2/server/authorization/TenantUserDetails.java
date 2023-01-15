@@ -29,11 +29,11 @@ public class TenantUserDetails implements UserDetails, CredentialsContainer, Ten
 
     private TenantContext tenantContext;
 
-    private final Set<SimpleGrantedAuthority> authorities;
+    private final Set<AttributeGrantedAuthority> authorities;
 
     public TenantUserDetails(Long userId, String username, String password,
                              boolean enabled, boolean locked, boolean accountExpired, boolean credentialsExpired,
-                             Set<SimpleGrantedAuthority> authorities) {
+                             Set<AttributeGrantedAuthority> authorities) {
         this.userId = userId;
         this.username = username;
         this.password = password;
@@ -58,7 +58,7 @@ public class TenantUserDetails implements UserDetails, CredentialsContainer, Ten
     }
 
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
+    public Collection<AttributeGrantedAuthority> getAuthorities() {
         return authorities;
     }
 

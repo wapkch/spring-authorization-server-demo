@@ -26,19 +26,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.zhongan.multitenancy.context.TenantContext;
 
+import io.github.cathy.oauth2.server.authorization.AttributeGrantedAuthority;
 import io.github.cathy.oauth2.server.authorization.TenantUserDetails;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Set;
 
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
 class TenantUserDeserializer extends JsonDeserializer<TenantUserDetails> {
 
-	private static final TypeReference<Set<SimpleGrantedAuthority>> SIMPLE_GRANTED_AUTHORITY_SET = new TypeReference<Set<SimpleGrantedAuthority>>() {
+	private static final TypeReference<Set<AttributeGrantedAuthority>> ATTRIBUTE_GRANTED_AUTHORITY_SET = new TypeReference<Set<AttributeGrantedAuthority>>() {
 	};
 
 	private static final TypeReference<TenantContext> TENANT_CONTEXT_TYPE_REFERENCE = new TypeReference<TenantContext>() {
@@ -59,8 +57,8 @@ class TenantUserDeserializer extends JsonDeserializer<TenantUserDetails> {
 	public TenantUserDetails deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
 		ObjectMapper mapper = (ObjectMapper) jp.getCodec();
 		JsonNode jsonNode = mapper.readTree(jp);
-		Set<SimpleGrantedAuthority> authorities = mapper.convertValue(jsonNode.get("authorities"),
-				SIMPLE_GRANTED_AUTHORITY_SET);
+		Set<AttributeGrantedAuthority> authorities = mapper.convertValue(jsonNode.get("authorities"),
+			ATTRIBUTE_GRANTED_AUTHORITY_SET);
 
 		TenantContext tenantContext = mapper.convertValue(jsonNode.get("tenantContext"),
 			TENANT_CONTEXT_TYPE_REFERENCE);
