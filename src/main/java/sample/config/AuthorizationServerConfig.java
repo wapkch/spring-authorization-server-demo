@@ -1,7 +1,6 @@
 package sample.config;
 
 import sample.jose.Jwks;
-import sample.redis.RedisOAuth2AuthorizationService;
 
 import com.fasterxml.jackson.databind.cfg.HandlerInstantiator;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -17,11 +16,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.RedisScript;
-import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.http.converter.json.SpringHandlerInstantiator;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
@@ -35,6 +29,7 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
@@ -101,27 +96,13 @@ public class AuthorizationServerConfig {
 	// @formatter:on
 
 	@Bean
-	public OAuth2AuthorizationService authorizationService(RedisConnectionFactory redisConnectionFactory,
-														   RegisteredClientRepository clientRepository,
-														   AutowireCapableBeanFactory beanFactory) {
-		RedisTemplate<String, String> redisTemplate = new RedisTemplate<>();
-		redisTemplate.setConnectionFactory(redisConnectionFactory);
-		redisTemplate.setKeySerializer(StringRedisSerializer.UTF_8);
-		redisTemplate.setValueSerializer(StringRedisSerializer.UTF_8);
-		redisTemplate.afterPropertiesSet();
-
-		return new RedisOAuth2AuthorizationService(redisTemplate, clientRepository, saveScript(), beanFactory);
+	public OAuth2AuthorizationService authorizationService(JdbcTemplate jdbcTemplate, RegisteredClientRepository registeredClientRepository) {
+		return new JdbcOAuth2AuthorizationService(jdbcTemplate, registeredClientRepository);
 	}
 
 	@Bean
 	public HandlerInstantiator springBeanHandlerInstantiator(AutowireCapableBeanFactory beanFactory) {
 		return new SpringHandlerInstantiator(beanFactory);
-	}
-
-	@Bean
-	public RedisScript<String> saveScript() {
-		return RedisScript.of(
-			new ClassPathResource("META-INF/scripts/save_authorization.lua"), String.class);
 	}
 
 	@Bean
