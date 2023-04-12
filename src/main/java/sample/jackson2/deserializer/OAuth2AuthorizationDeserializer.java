@@ -81,7 +81,7 @@ public class OAuth2AuthorizationDeserializer extends JsonDeserializer<OAuth2Auth
         return builder.build();
     }
 
-    public void addToken(OAuth2Authorization.Token<OAuth2Token> token, Builder builder) {
+    public void addToken(Token<OAuth2Token> token, Builder builder) {
         builder.token(token.getToken(), map -> map.putAll(token.getMetadata()));
     }
 

@@ -17,10 +17,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.http.converter.json.SpringHandlerInstantiator;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -109,19 +107,12 @@ public class AuthorizationServerConfig {
 		redisTemplate.setKeySerializer(StringRedisSerializer.UTF_8);
 		redisTemplate.setValueSerializer(StringRedisSerializer.UTF_8);
 		redisTemplate.afterPropertiesSet();
-
-		return new RedisOAuth2AuthorizationService(redisTemplate, clientRepository, saveScript(), beanFactory);
+		return new RedisOAuth2AuthorizationService(redisTemplate, clientRepository, beanFactory);
 	}
 
 	@Bean
 	public HandlerInstantiator springBeanHandlerInstantiator(AutowireCapableBeanFactory beanFactory) {
 		return new SpringHandlerInstantiator(beanFactory);
-	}
-
-	@Bean
-	public RedisScript<String> saveScript() {
-		return RedisScript.of(
-			new ClassPathResource("META-INF/scripts/save_authorization.lua"), String.class);
 	}
 
 	@Bean

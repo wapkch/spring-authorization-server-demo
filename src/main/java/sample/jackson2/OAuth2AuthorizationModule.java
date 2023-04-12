@@ -11,10 +11,10 @@ import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationCode;
 
-public class OAuth2Module extends SimpleModule {
+public class OAuth2AuthorizationModule extends SimpleModule {
 
-    public OAuth2Module() {
-        super(OAuth2Module.class.getName(), new Version(1, 0, 0, null, null, null));
+    public OAuth2AuthorizationModule() {
+        super(OAuth2AuthorizationModule.class.getName(), new Version(1, 0, 0, null, null, null));
     }
 
     @Override
