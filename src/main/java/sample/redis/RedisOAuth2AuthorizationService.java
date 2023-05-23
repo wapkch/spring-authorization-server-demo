@@ -100,7 +100,7 @@ public class RedisOAuth2AuthorizationService implements OAuth2AuthorizationServi
         Duration accessTokenTtl = registeredClient.getTokenSettings().getAccessTokenTimeToLive();
         Duration refreshTokenTtl = registeredClient.getTokenSettings().getRefreshTokenTimeToLive();
         Duration stateTtl = codeTtl;
-        Duration max = authorization.getRefreshToken() != null ?
+        Duration max = authorization.getRefreshToken() == null ?
             accessTokenTtl : Collections.max(Arrays.asList(accessTokenTtl, refreshTokenTtl));
         Duration authorizationTtl = max;
         Duration correlationsTtl = max;
